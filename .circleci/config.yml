@@ -1,0 +1,45 @@
+# Use the latest 2.1 version of CircleCI pipeline process engine.
+# See: https://circleci.com/docs/2.0/configuration-reference
+version: 2.1
+
+# Define a job to be invoked later in a workflow.
+# See: https://circleci.com/docs/2.0/configuration-reference/#jobs
+jobs:
+  build-image:
+    # Specify the execution environment. You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
+    # See: https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
+    machine:
+      image: ubuntu-2004:202101-01
+      docker_layer_caching: true
+    resource_class: arm.medium
+    # Add steps to the job
+    # See: https://circleci.com/docs/2.0/configuration-reference/#steps
+    steps:
+      - checkout
+      - run:
+          name: "docker pull"
+          command: "docker pull vyos/vyos-build:current-arm64"
+      - run:
+          name: "Build image"
+          command: "docker run -it --privileged -v \"$(pwd)\":/vyos -v /dev:/dev -w /vyos --sysctl net.ipv6.conf.lo.disable_ipv6=0 vyos/vyos-build:current-arm64 sudo bash -x build-image.sh"
+      - store_artifacts:
+          path: vyos-bcm2711-rpi-cm4.img.zip
+      - store_artifacts:
+          path: vyos-bcm2711-rpi-4-b.img.zip
+
+# Invoke jobs via workflows
+# See: https://circleci.com/docs/2.0/configuration-reference/#workflows
+workflows:
+  build-image-workflow:
+    jobs:
+      - build-image
+  build-image-daily:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - circleci-project-setup
+    jobs:
+      - build-image
